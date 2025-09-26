@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Toe • Fun Quest Station</title>
+  <link rel="stylesheet" href="css/bootstrap.min.css" />
+  <link rel="stylesheet" href="css/templatemo-style.css" />
+  <link rel="stylesheet" href="css/fontawesome-all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0e0f13;--card:#171923;--muted:#a0aec0;--accent:#7c5cff;--accent2:#00d4ff;--border:rgba(255,255,255,.08)}
+    /* Purple-Pink neon animated gradient background */
+    body{background:linear-gradient(135deg,#2a0845,#6441A5,#ff0080);background-size:220% 220%;animation:gradientMove 16s ease infinite;color:#e2e8f0;font-family:"Poppins",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    @keyframes gradientMove{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+    .container-narrow{max-width:900px;margin:0 auto;padding:24px}
+    .board{display:grid;grid-template-columns:repeat(3,110px);grid-template-rows:repeat(3,110px);gap:12px;justify-content:center;margin:20px auto}
+    .cell{background:linear-gradient(180deg,rgba(27,30,43,.95) 0%,rgba(20,22,34,.95) 100%);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:54px;font-weight:700;color:#cbd5e1;transition:transform .15s ease, box-shadow .15s ease, border-color .2s ease}
+    .cell:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.35);border-color:rgba(255,0,128,.45)}
+    .status{font-weight:600;color:#cbd5e1}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#11131a;color:#cbd5e1}
+    .btn-ghost{border:1px solid var(--border);background:#0f1118;color:#e2e8f0}
+    .btn-ghost:hover{border-color:transparent;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#0e0f13}
+    .winner{color:#00ffc8}
+    .draw{color:#ffd166}
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark" style="background:rgba(23,25,35,.7);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)">
+    <div class="container">
+      <a class="navbar-brand" href="index.html"><span class="brand-gradient">Fun Quest Station</span></a>
+    </div>
+  </nav>
+
+  <main class="container-narrow text-center">
+    <h1 class="mt-4 mb-1" style="font-size:1.6rem">Tic Tac Toe</h1>
+    <div class="status mb-2">Current turn: <span id="turn" class="pill">X</span></div>
+    <div id="board" class="board" role="grid" aria-label="Tic Tac Toe board"></div>
+    <div class="mt-3">
+      <button id="reset" class="btn btn-sm btn-ghost">Reset</button>
+      <a href="index.html" class="btn btn-sm btn-ghost ms-2">Back</a>
+    </div>
+    <p id="result" class="mt-3 mb-0"></p>
+  </main>
+
+  <script>
+    (function(){
+      const boardEl = document.getElementById('board');
+      const turnEl = document.getElementById('turn');
+      const resultEl = document.getElementById('result');
+      const resetBtn = document.getElementById('reset');
+
+      let board = Array(9).fill(null);
+      let turn = 'X';
+      let gameOver = false;
+
+      const wins = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6]
+      ];
+
+      function render(){
+        boardEl.innerHTML = '';
+        board.forEach((val, i)=>{
+          const cell = document.createElement('button');
+          cell.className = 'cell';
+          cell.setAttribute('role','gridcell');
+          cell.setAttribute('aria-label', `Cell ${i+1}`);
+          cell.textContent = val ? val : '';
+          cell.disabled = !!val || gameOver;
+          cell.addEventListener('click', ()=> handleMove(i));
+          boardEl.appendChild(cell);
+        });
+        turnEl.textContent = turn;
+      }
+
+      function handleMove(i){
+        if(gameOver || board[i]) return;
+        board[i] = turn;
+        const winner = checkWinner();
+        if(winner){
+          gameOver = true;
+          resultEl.textContent = `${winner} wins!`;
+          resultEl.className = 'winner';
+        } else if(board.every(Boolean)){
+          gameOver = true;
+          resultEl.textContent = 'Draw!';
+          resultEl.className = 'draw';
+        } else {
+          turn = (turn === 'X') ? 'O' : 'X';
+        }
+        render();
+      }
+
+      function checkWinner(){
+        for(const [a,b,c] of wins){
+          if(board[a] && board[a] === board[b] && board[b] === board[c]) return board[a];
+        }
+        return null;
+      }
+
+      resetBtn.addEventListener('click', ()=>{
+        board = Array(9).fill(null);
+        turn = 'X';
+        gameOver = false;
+        resultEl.textContent = '';
+        resultEl.className = '';
+        render();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
