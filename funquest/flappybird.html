@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flappy Bird • Fun Quest Station</title>
+  <link rel="stylesheet" href="css/bootstrap.min.css" />
+  <link rel="stylesheet" href="css/templatemo-style.css" />
+  <link rel="stylesheet" href="css/fontawesome-all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0e0f13;--card:#171923;--muted:#a0aec0;--accent:#7c5cff;--accent2:#00d4ff;--border:rgba(255,255,255,.08)}
+    body{background:linear-gradient(135deg,#0b132b,#1c2541,#3a506b);background-size:200% 200%;animation:bg 20s ease infinite;color:#e2e8f0;font-family:"Poppins",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    @keyframes bg{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+    .container-narrow{max-width:900px;margin:0 auto;padding:24px}
+    .game-wrap{display:flex;flex-direction:column;align-items:center}
+    canvas{background:linear-gradient(#9be7ff,#aef1ff,#c8f9ff);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .controls{margin-top:12px}
+    .btn-ghost{border:1px solid var(--border);background:#0f1118;color:#e2e8f0}
+    .btn-ghost:hover{border-color:transparent;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#0e0f13}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#11131a;color:#cbd5e1}
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark" style="background:rgba(23,25,35,.7);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)">
+    <div class="container">
+      <a class="navbar-brand" href="index.html"><span class="brand-gradient">Fun Quest Station</span></a>
+    </div>
+  </nav>
+
+  <main class="container-narrow text-center">
+    <h1 class="mt-4 mb-1" style="font-size:1.6rem">Flappy Bird</h1>
+    <div class="mb-2">Score: <span id="score" class="pill">0</span></div>
+    <div class="game-wrap">
+      <canvas id="game" width="420" height="560" aria-label="Flappy Bird canvas" role="img"></canvas>
+      <div class="controls">
+        <button id="start" class="btn btn-sm btn-ghost">Start</button>
+        <button id="reset" class="btn btn-sm btn-ghost ms-2">Reset</button>
+        <a href="index.html" class="btn btn-sm btn-ghost ms-2">Back</a>
+      </div>
+      <p class="mt-2" style="color:#a0aec0">Click / Space / Up Arrow to flap</p>
+    </div>
+  </main>
+
+  <script>
+    (function(){
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+      const startBtn = document.getElementById('start');
+      const resetBtn = document.getElementById('reset');
+      const scoreEl = document.getElementById('score');
+
+      let raf, running = false;
+      // time-based physics constants (per second)
+      const GRAVITY = 1400; // px/s^2
+      const FLAP_V = -380;  // px/s
+      const PIPE_GAP = 140; // px
+      const PIPE_W = 64;    // px
+      const PIPE_SPEED = 140; // px/s
+      const PIPE_INTERVAL = 1500; // ms between spawns
+
+      const bird = { x: 120, y: canvas.height/2, r: 16, vy: 0 };
+      let pipes = [];
+      let lastPipe = 0;
+      let score = 0;
+      let gameOver = false;
+
+      function reset(){
+        bird.y = canvas.height/2; bird.vy = 0; score = 0; scoreEl.textContent = score;
+        pipes = []; lastPipe = 0; gameOver = false; running = false; cancelAnimationFrame(raf);
+        drawTitle();
+      }
+
+      function drawTitle(){
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+        ctx.fillStyle = '#0ea5e9';
+        ctx.font = 'bold 28px Poppins, Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Press Start to Play', canvas.width/2, canvas.height/2 - 20);
+        ctx.fillStyle = '#334155';
+        ctx.font = '16px Poppins, Arial';
+        ctx.fillText('Click / Space / Up Arrow to flap', canvas.width/2, canvas.height/2 + 10);
+        drawBird();
+      }
+
+      function spawnPipe(){
+        const minTop = 60, minBottom = 60;
+        const topH = Math.max(minTop, Math.random() * (canvas.height - PIPE_GAP - minTop - minBottom));
+        const bottomY = topH + PIPE_GAP;
+        pipes.push({ x: canvas.width + 10, top: topH, bottomY: bottomY });
+      }
+
+      function flap(){
+        if(!running) return; if(gameOver) return; bird.vy = FLAP_V;
+      }
+
+      function update(dtMs){
+        const dt = dtMs / 1000; // convert to seconds
+        bird.vy += GRAVITY * dt;
+        bird.y += bird.vy * dt;
+        // spawn pipes
+        lastPipe += dtMs;
+        if(lastPipe > PIPE_INTERVAL){ spawnPipe(); lastPipe = 0; }
+        // move and remove pipes
+        for(const p of pipes){ p.x -= PIPE_SPEED * dt; }
+        pipes = pipes.filter(p => p.x + PIPE_W > -10);
+        // scoring and collision
+        for(const p of pipes){
+          if(!p.passed && p.x + PIPE_W < bird.x){ p.passed = true; score++; scoreEl.textContent = score; }
+          const withinX = bird.x + bird.r > p.x && bird.x - bird.r < p.x + PIPE_W;
+          const hitTop = withinX && (bird.y - bird.r < p.top);
+          const hitBottom = withinX && (bird.y + bird.r > p.bottomY);
+          if(hitTop || hitBottom) gameOver = true;
+        }
+        if(bird.y - bird.r < 0 || bird.y + bird.r > canvas.height) gameOver = true;
+      }
+
+      function drawBird(){
+        // body
+        const grd = ctx.createLinearGradient(bird.x-16,bird.y-16,bird.x+16,bird.y+16);
+        grd.addColorStop(0,'#7c5cff'); grd.addColorStop(1,'#00d4ff');
+        ctx.fillStyle = grd;
+        ctx.beginPath(); ctx.arc(bird.x, bird.y, bird.r, 0, Math.PI*2); ctx.fill();
+        // eye
+        ctx.fillStyle = '#0e0f13'; ctx.beginPath(); ctx.arc(bird.x+6, bird.y-4, 3, 0, Math.PI*2); ctx.fill();
+        // beak
+        ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.moveTo(bird.x+bird.r, bird.y);
+        ctx.lineTo(bird.x+bird.r+10, bird.y-4); ctx.lineTo(bird.x+bird.r+10, bird.y+4); ctx.closePath(); ctx.fill();
+      }
+
+      function draw(){
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+        // pipes
+        ctx.fillStyle = '#34d399';
+        for(const p of pipes){
+          ctx.fillRect(p.x, 0, PIPE_W, p.top);
+          ctx.fillRect(p.x, p.bottomY, PIPE_W, canvas.height - p.bottomY);
+        }
+        // bird
+        drawBird();
+        // ground line
+        ctx.strokeStyle = 'rgba(0,0,0,.15)'; ctx.beginPath(); ctx.moveTo(0, canvas.height-0.5); ctx.lineTo(canvas.width, canvas.height-0.5); ctx.stroke();
+        // game over
+        if(gameOver){
+          ctx.fillStyle = '#ff6b6b'; ctx.font = 'bold 28px Poppins, Arial'; ctx.textAlign = 'center';
+          ctx.fillText('Game Over', canvas.width/2, canvas.height/2 - 10);
+          ctx.fillStyle = '#94a3b8'; ctx.font = '16px Poppins, Arial';
+          ctx.fillText('Press Reset to try again', canvas.width/2, canvas.height/2 + 18);
+        }
+      }
+
+      let last = 0;
+      function loop(ts){
+        if(!running){ draw(); return; }
+        const dt = ts - last; last = ts;
+        update(dt);
+        draw();
+        raf = requestAnimationFrame(loop);
+      }
+
+      // events
+      startBtn.addEventListener('click', ()=>{ if(!running){ running = true; last = performance.now(); raf = requestAnimationFrame(loop);} });
+      resetBtn.addEventListener('click', ()=> reset());
+      window.addEventListener('keydown', (e)=>{ if(e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); flap(); } });
+      canvas.addEventListener('pointerdown', flap);
+
+      reset();
+    })();
+  </script>
+</body>
+</html>

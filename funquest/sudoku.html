@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sudoku • Fun Quest Station</title>
+  <link rel="stylesheet" href="css/bootstrap.min.css" />
+  <link rel="stylesheet" href="css/templatemo-style.css" />
+  <link rel="stylesheet" href="css/fontawesome-all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0e0f13;--card:#171923;--muted:#a0aec0;--accent:#7c5cff;--accent2:#00d4ff;--border:rgba(255,255,255,.08)}
+    body{background:linear-gradient(135deg,#0e0f13,#1a142b);color:#e2e8f0;font-family:"Poppins",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .container-narrow{max-width:980px;margin:0 auto;padding:24px}
+    .sudoku{display:grid;grid-template-columns:repeat(9,48px);grid-template-rows:repeat(9,48px);gap:2px;margin:16px auto;border:1px solid var(--border);padding:6px;border-radius:12px;background:#0f1118;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .cell{display:flex;align-items:center;justify-content:center;border-radius:8px;background:#151827;border:1px solid rgba(255,255,255,.06);font-size:20px;font-weight:600;color:#cbd5e1;cursor:pointer;user-select:none}
+    .cell.prefilled{background:#1b1f2f;color:#9fb3ff;cursor:not-allowed}
+    .cell.selected{outline:2px solid #7c5cff}
+    .cell.conflict{background:#3a1020;border-color:#ff4d6d}
+    .subgrid-rt{box-shadow: 3px 0 0 0 rgba(255,255,255,0.06)}
+    .subgrid-bt{box-shadow: 0 3px 0 0 rgba(255,255,255,0.06)}
+    .panel{display:flex;justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+    .num{width:44px;height:44px;border-radius:10px;border:1px solid var(--border);background:#0f1118;color:#e2e8f0;font-weight:700}
+    .num:hover{border-color:transparent;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#0e0f13}
+    .btn-ghost{border:1px solid var(--border);background:#0f1118;color:#e2e8f0}
+    .btn-ghost:hover{border-color:transparent;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#0e0f13}
+    .note{color:#a0aec0}
+    @media (max-width:520px){.sudoku{grid-template-columns:repeat(9,36px);grid-template-rows:repeat(9,36px)}}
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark" style="background:rgba(23,25,35,.7);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)">
+    <div class="container">
+      <a class="navbar-brand" href="index.html"><span class="brand-gradient">Fun Quest Station</span></a>
+    </div>
+  </nav>
+
+  <main class="container-narrow text-center">
+    <h1 class="mt-4 mb-1" style="font-size:1.6rem">Sudoku</h1>
+    <div class="note">Fill the 9×9 grid so each row, column and 3×3 box contains 1–9.</div>
+    <div id="grid" class="sudoku" role="grid" aria-label="Sudoku grid"></div>
+    <div class="panel">
+      <button class="num" data-n="1">1</button>
+      <button class="num" data-n="2">2</button>
+      <button class="num" data-n="3">3</button>
+      <button class="num" data-n="4">4</button>
+      <button class="num" data-n="5">5</button>
+      <button class="num" data-n="6">6</button>
+      <button class="num" data-n="7">7</button>
+      <button class="num" data-n="8">8</button>
+      <button class="num" data-n="9">9</button>
+      <button id="erase" class="btn btn-sm btn-ghost ms-2">Erase</button>
+      <button id="check" class="btn btn-sm btn-ghost ms-2">Check</button>
+      <button id="reset" class="btn btn-sm btn-ghost ms-2">Reset</button>
+      <a href="index.html" class="btn btn-sm btn-ghost ms-2">Back</a>
+    </div>
+    <p id="status" class="mt-2"></p>
+  </main>
+
+  <script>
+    (function(){
+      const gridEl = document.getElementById('grid');
+      const statusEl = document.getElementById('status');
+      const eraseBtn = document.getElementById('erase');
+      const checkBtn = document.getElementById('check');
+      const resetBtn = document.getElementById('reset');
+
+      // Simple starter puzzle (0 = empty)
+      const puzzle = [
+        0,0,0, 2,6,0, 7,0,1,
+        6,8,0, 0,7,0, 0,9,0,
+        1,9,0, 0,0,4, 5,0,0,
+
+        8,2,0, 1,0,0, 0,4,0,
+        0,0,4, 6,0,2, 9,0,0,
+        0,5,0, 0,0,3, 0,2,8,
+
+        0,0,9, 3,0,0, 0,7,4,
+        0,4,0, 0,5,0, 0,3,6,
+        7,0,3, 0,1,8, 0,0,0
+      ];
+
+      let values = puzzle.slice();
+      let selected = -1;
+
+      function render(){
+        gridEl.innerHTML = '';
+        for(let i=0;i<81;i++){
+          const val = values[i];
+          const cell = document.createElement('button');
+          cell.className = 'cell';
+          const r = Math.floor(i/9), c = i%9;
+          // 3x3 separators
+          if((c===2||c===5)) cell.classList.add('subgrid-rt');
+          if((r===2||r===5)) cell.classList.add('subgrid-bt');
+          if(puzzle[i]!==0){
+            cell.textContent = puzzle[i];
+            cell.classList.add('prefilled');
+            cell.disabled = true;
+          } else {
+            cell.textContent = val?val:'';
+            cell.addEventListener('click', ()=>select(i));
+          }
+          if(i===selected) cell.classList.add('selected');
+          gridEl.appendChild(cell);
+        }
+      }
+
+      function select(i){
+        selected = i;
+        render();
+      }
+
+      function place(n){
+        if(selected<0 || puzzle[selected]!==0) return;
+        values[selected] = n;
+        highlightConflicts();
+      }
+
+      function highlightConflicts(){
+        // recompute conflicts
+        const cells = Array.from(gridEl.children);
+        cells.forEach(c=>c.classList.remove('conflict'));
+        for(let i=0;i<81;i++){
+          if(values[i]===0) continue;
+          const r = Math.floor(i/9), c = i%9, b = Math.floor(r/3)*3 + Math.floor(c/3);
+          for(let j=0;j<81;j++){
+            if(i===j) continue;
+            const rr = Math.floor(j/9), cc = j%9, bb = Math.floor(rr/3)*3 + Math.floor(cc/3);
+            if(values[i]!==0 && values[i]===values[j] && (r===rr || c===cc || b===bb)){
+              cells[i].classList.add('conflict');
+              cells[j].classList.add('conflict');
+            }
+          }
+        }
+      }
+
+      function isSolved(){
+        return values.every(v=>v!==0) && Array.from(gridEl.children).every(c=>!c.classList.contains('conflict'));
+      }
+
+      eraseBtn.addEventListener('click', ()=>{
+        if(selected>=0 && puzzle[selected]===0){ values[selected]=0; render(); }
+      });
+      checkBtn.addEventListener('click', ()=>{
+        highlightConflicts();
+        statusEl.textContent = isSolved()? 'Great! Puzzle solved.' : 'Keep going... conflicts highlighted in red.';
+        statusEl.style.color = isSolved()? '#00ffc8' : '#ffd166';
+      });
+      resetBtn.addEventListener('click', ()=>{ values = puzzle.slice(); selected=-1; statusEl.textContent=''; render(); });
+
+      document.querySelectorAll('.num').forEach(btn=>{
+        btn.addEventListener('click', ()=> place(parseInt(btn.dataset.n)) );
+      });
+
+      // keyboard support
+      window.addEventListener('keydown', (e)=>{
+        if(e.key>='1' && e.key<='9') place(parseInt(e.key));
+        if(e.key==='Backspace' || e.key==='Delete') eraseBtn.click();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
